@@ -61,7 +61,7 @@ unsigned int actualCycle    = 1;
 unsigned int actualStep     = 1;  // 1 - 5
 bool endCycle               = false;
 bool lynchON                = false;
-unsigned int lynchFlicks[]  = { 33,66,99,101,106,109,123,132,161 };
+unsigned int lynchFlicks[]  = { 18,24,25,29,33,49,61,73,87 };
 
 String message              = encode( "PWNED " );
 
