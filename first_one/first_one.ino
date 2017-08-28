@@ -173,23 +173,18 @@ void runCycle(){
   switch (actualStep) {
     case 1:
       lynchLED();
-      ptStop();
       break;
     case 2:
       binaryLED();
-      ptStop();
       break;
     case 3:
       binaryLEDRand();
-      ptStop();
       break;
     case 4:
       sendMorseMessage();
-      ptStop();
       break;
     case 5:
       batteryMeter();
-      ptStop();
       break;
     default:
       actualStep = 1;
@@ -245,13 +240,17 @@ void batteryMeter(){
     reset = millis();
     if(batteryCounter < NUM_CYCLES){
       batteryCounter++;
+      ptStop();
     }else{
       endCycle = true;
       batteryCounter = 1;
       LEDSOFF();
+      ptStop();
       doPowerDown(SLEEP_4S, TIME_MULTIPLIER);
       
     }
+  }else{
+    ptStop();
   }
 }
 
@@ -285,12 +284,16 @@ void binaryLED(){
     reset = millis();
     if(binaryCounter < MAX_BIN_COUNT){
       binaryCounter++;
+      ptStop();
     }else{
       endCycle = true;
       binaryCounter = 0;
       LEDSOFF();
+      ptStop();
       doPowerDown(SLEEP_4S, TIME_MULTIPLIER);
     }
+  }else{
+    ptStop();
   }
 }
 
@@ -312,13 +315,17 @@ void binaryLEDRand(){
     reset = millis();
     if(binaryCounter < 512){
       binaryCounter++;
+      ptStop();
     }else{
       endCycle = true;
       binaryCounter = 0;
       LEDSOFF();
       shuffleLEDS();
+      ptStop();
       doPowerDown(SLEEP_4S, TIME_MULTIPLIER);
     }
+  }else{
+    ptStop();
   }
 }
 
@@ -340,6 +347,7 @@ void lynchLED(){
     lynchON = !lynchON;
     if(lynchCounter < NUM_CYCLES*2){
       lynchCounter++;
+      ptStop();
     }else{
       endCycle = true;
       lynchCounter = 1;
@@ -347,8 +355,11 @@ void lynchLED(){
       int rr = random(0,9);
       waitLynch = lynchFlicks[rr]*TIME_MULTIPLIER;
       LEDSOFF();
+      ptStop();
       doPowerDown(SLEEP_4S, TIME_MULTIPLIER);
     }
+  }else{
+    ptStop();
   }
 }
 
@@ -380,10 +391,12 @@ void sendMorseMessage(){
 
   if(morseCounter < NUM_CYCLES){
     morseCounter++;
+    ptStop();
   }else{
     endCycle = true;
     morseCounter = 1;
     LEDSOFF();
+    ptStop();
     doPowerDown(SLEEP_4S, TIME_MULTIPLIER);
   }
   
