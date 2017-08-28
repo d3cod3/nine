@@ -45,6 +45,8 @@ bool SYS_DEBUG = true;
 
 unsigned long arTime         = millis();
 unsigned long reset          = millis();
+unsigned long powerTime      = 0;
+unsigned long timeBuffer     = 0;
 unsigned int WAIT            = 150*TIME_MULTIPLIER;
 unsigned int waitLynch       = 33*TIME_MULTIPLIER;
 unsigned int actualPin       = 2;
@@ -74,6 +76,9 @@ unsigned int ledPinsRAND[]  = { 2, 3, 4, 5, 6, 7, 8, 9, 10 };
 /////////////////////////////////////////////////////////
 
 void setup() {
+
+  ptStart();
+  
   randomSeed(analogRead(1));
   
   for(unsigned int i=0;i<NUM_LEDS;i++){
@@ -86,6 +91,8 @@ void setup() {
   if(DEBUG){
     Serial.begin(9600);
   }
+
+  ptStop();
 }
 
 /////////////////////////////////////////////////////////
@@ -95,6 +102,10 @@ void setup() {
 void loop() {
   // Avoid arduino calls between loops
   while (true) {
+
+    ptReset(); // reset power time accumulation every 24h
+    
+    ptStart(); // start accumulating power time
 
     // Read voltage, check charge state
     voltage = readVcc();
@@ -116,6 +127,7 @@ void loop() {
           checkLEDS();
         }
       }
+      ptStop(); // stop accumulating power time
     }else{
       if(voltage >= MIN_VOLTAGE && weAreTheNight){
         // We're ON
@@ -126,6 +138,7 @@ void loop() {
           Serial.println("Low battery/It' not dark yet!");
         }
         LEDSOFF();
+        ptStop(); // stop accumulating power time
         // Enter power down state for 8 s with ADC and BOD module disabled
         doPowerDown(SLEEP_8S, TIME_MULTIPLIER);
       }
@@ -160,22 +173,28 @@ void runCycle(){
   switch (actualStep) {
     case 1:
       lynchLED();
+      ptStop();
       break;
     case 2:
       binaryLED();
+      ptStop();
       break;
     case 3:
       binaryLEDRand();
+      ptStop();
       break;
     case 4:
       sendMorseMessage();
+      ptStop();
       break;
     case 5:
       batteryMeter();
+      ptStop();
       break;
     default:
       actualStep = 1;
       LEDSOFF();
+      ptStop();
       doPowerDown(SLEEP_8S, TIME_MULTIPLIER);
     break;
   }
@@ -242,10 +261,10 @@ void batteryMeter(){
  * 
  */
 void doPowerDown(period_t sleepTime, uint8_t sleepCount) {
-        do {
-          LowPower.powerDown(sleepTime, ADC_OFF, BOD_OFF);
-          sleepCount--;
-        } while (sleepCount > 0);
+  do {
+    LowPower.powerDown(sleepTime, ADC_OFF, BOD_OFF);
+    sleepCount--;
+  } while (sleepCount > 0);
 }
 
 /*
@@ -436,3 +455,34 @@ void LEDSON(){
     digitalWriteFast(ledPins[i], HIGH);
   }
 }
+
+/*
+ * Power time check Start
+ * 
+ */
+void ptStart(){
+  timeBuffer = millis();
+}
+
+/*
+ * Power time check Stop
+ * 
+ */
+void ptStop(){
+  powerTime += ( millis()-timeBuffer );
+  if(DEBUG){
+    Serial.println(powerTime);
+  }
+}
+
+/*
+ * Power time check reset
+ * 
+ */
+void ptReset(){
+  // Every 24h
+  if(millis()%86400000 == 0){
+    powerTime = 0;
+  }
+}
+
