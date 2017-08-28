@@ -355,7 +355,7 @@ void sendMorseMessage(){
         break;
 
       case ' ': //gap
-        delay( MORSE_UNIT_TIME );
+        doPowerDown(MORSE_UNIT_TIME, TIME_MULTIPLIER);
     }
   }
 
