@@ -241,7 +241,7 @@ void batteryMeter(){
  * Power down auxiliary function
  * 
  */
-void doPowerDown(uint8_t sleepTime, uint8_t sleepCount) {
+void doPowerDown(period_t sleepTime, uint8_t sleepCount) {
         do {
           LowPower.powerDown(sleepTime, ADC_OFF, BOD_OFF);
           sleepCount--;
