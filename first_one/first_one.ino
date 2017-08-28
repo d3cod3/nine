@@ -32,35 +32,41 @@ bool DEBUG = true;
 bool HW_DEBUG = true;
 bool SYS_DEBUG = true;
 
-unsigned long arTime = millis();
-unsigned long reset = millis();
-unsigned int timeMultiplier = 1; // x1
-unsigned int MORSE_UNIT_TIME = 250*timeMultiplier;
-unsigned int wait = 150*timeMultiplier;
-unsigned int waitLynch = 33*timeMultiplier;
-unsigned int actualPin = 2;
+#define TIME_MULTIPLIER 1
+#define MORSE_UNIT_TIME SLEEP_250MS
+#define NUM_LEDS        9
+#define LDR_PIN         A0
+#define NUM_CYCLES      9
+#define MIN_VOLTAGE     3200
+#define MAX_VOLTAGE     4500
+#define LDR_MIDNIGHT    60
+#define MAX_BIN_COUNT   512
 
-int LDR = 0;
-long voltage = 0;
-unsigned int minVoltage = 3200;
-unsigned int ldrMinLight = 60;
+
+unsigned long arTime         = millis();
+unsigned long reset          = millis();
+unsigned int WAIT            = 150*TIME_MULTIPLIER;
+unsigned int waitLynch       = 33*TIME_MULTIPLIER;
+unsigned int actualPin       = 2;
+
+int LDR            = 0;
+long voltage       = 0;
 bool weAreTheNight = false; 
  
-unsigned int binaryCounter = 0; // 9 bits, 0 - 512
-unsigned int morseCounter = 1;  // 1 - 9
-unsigned int lynchCounter = 1;  // 1 - 18
+unsigned int binaryCounter  = 0; // 9 bits, 0 - 512
+unsigned int morseCounter   = 1;  // 1 - 9
+unsigned int lynchCounter   = 1;  // 1 - 18
 unsigned int batteryCounter = 1;  // 1 - 9
-unsigned int cycles = 9;
-unsigned int actualCycle = 1;
-unsigned int actualStep = 1;  // 1 - 5
-bool endCycle = false;
-bool lynchON = false;
-unsigned int lynchFlicks[] = { 33,66,99,101,106,109,123,132,161 };
+unsigned int actualCycle    = 1;
+unsigned int actualStep     = 1;  // 1 - 5
+bool endCycle               = false;
+bool lynchON                = false;
+unsigned int lynchFlicks[]  = { 33,66,99,101,106,109,123,132,161 };
 
-String message = encode( "PWNED " );
+String message              = encode( "PWNED " );
 
-unsigned int ledPins[] = { 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-unsigned int ledPinsRAND[] = { 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+unsigned int ledPins[]      = { 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+unsigned int ledPinsRAND[]  = { 2, 3, 4, 5, 6, 7, 8, 9, 10 };
 
 
 /////////////////////////////////////////////////////////
@@ -70,7 +76,7 @@ unsigned int ledPinsRAND[] = { 2, 3, 4, 5, 6, 7, 8, 9, 10 };
 void setup() {
   randomSeed(analogRead(1));
   
-  for(unsigned int i=0;i<9;i++){
+  for(unsigned int i=0;i<NUM_LEDS;i++){
     pinModeFast(ledPins[i], OUTPUT);
     digitalWriteFast(ledPins[i], LOW);
   }
@@ -97,7 +103,7 @@ void loop() {
 
     if(HW_DEBUG){
       // Hardware Check
-      if(voltage < minVoltage){
+      if(voltage < MIN_VOLTAGE){
         if(DEBUG){
           Serial.println("Low battery");
         }
@@ -111,7 +117,7 @@ void loop() {
         }
       }
     }else{
-      if(voltage >= minVoltage && weAreTheNight){
+      if(voltage >= MIN_VOLTAGE && weAreTheNight){
         // We're ON
         runCycle();
       }else{
@@ -121,7 +127,7 @@ void loop() {
         }
         LEDSOFF();
         // Enter power down state for 8 s with ADC and BOD module disabled
-        LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+        doPowerDown(SLEEP_8S, TIME_MULTIPLIER);
       }
     }
     
@@ -142,11 +148,12 @@ void runCycle(){
   if(endCycle){
     endCycle = false;
     randomSeed(analogRead(1));
-    if(actualCycle < cycles){
+    if(actualCycle < NUM_CYCLES){
       actualCycle++;
     }else{
       actualCycle = 1;
-      nextStep();
+      actualStep++;
+      if (actualStep > 5) actualStep = 1;
     }
   }
 
@@ -169,18 +176,10 @@ void runCycle(){
     default:
       actualStep = 1;
       LEDSOFF();
-      LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+      doPowerDown(SLEEP_8S, TIME_MULTIPLIER);
     break;
   }
   
-}
-
-void nextStep(){
-  if(actualStep <= 5){
-    actualStep++;
-  }else{
-    actualStep = 1;
-  }
 }
 
 /*
@@ -188,14 +187,14 @@ void nextStep(){
  * 
  */
 void checkLEDS(){
-  for(unsigned int i=0;i<9;i++){
+  for(unsigned int i=0;i<NUM_LEDS;i++){
     digitalWriteFast(ledPins[i], LOW);
     if(ledPins[i] == actualPin){
       digitalWriteFast(ledPins[i], HIGH);
     }
   }
 
-  if(arTime-reset > wait){
+  if(arTime-reset > WAIT){
     reset = millis();
     if(actualPin < 10){
       actualPin++;
@@ -211,11 +210,11 @@ void checkLEDS(){
  */
 void batteryMeter(){
   // min 3200, max 4500
-  int bl = map((int)voltage,minVoltage,4500,0,8);
+  int bl = map((int)voltage,MIN_VOLTAGE,MAX_VOLTAGE,0,NUM_LEDS);
   if(DEBUG){
     Serial.println(bl);
   }
-  for(unsigned int i=0;i<9;i++){
+  for(unsigned int i=0;i<NUM_LEDS;i++){
     if(i <= bl){
       digitalWriteFast(ledPins[i], HIGH);
     }else{
@@ -223,17 +222,30 @@ void batteryMeter(){
     }
   }
 
-  if(arTime-reset > wait){
+  if(arTime-reset > WAIT){
     reset = millis();
-    if(batteryCounter < cycles){
+    if(batteryCounter < NUM_CYCLES){
       batteryCounter++;
     }else{
       endCycle = true;
       batteryCounter = 1;
       LEDSOFF();
-      LowPower.powerDown(SLEEP_4S, ADC_OFF, BOD_OFF);
+      doPowerDown(SLEEP_4S, TIME_MULTIPLIER);
+      
     }
   }
+}
+
+
+/*
+ * Power down auxiliary function
+ * 
+ */
+void doPowerDown(uint8_t sleepTime, uint8_t sleepCount) {
+        do {
+          LowPower.powerDown(sleepTime, ADC_OFF, BOD_OFF);
+          sleepCount--;
+        } while (sleepCount > 0);
 }
 
 /*
@@ -242,7 +254,7 @@ void batteryMeter(){
  */
 void binaryLED(){
 
-  for(unsigned int i=0;i<9;i++){
+  for(unsigned int i=0;i<NUM_LEDS;i++){
     if(bitRead(binaryCounter,i) == 0){
       digitalWriteFast(ledPins[i], LOW);
     }else if(bitRead(binaryCounter,i) == 1){
@@ -250,15 +262,15 @@ void binaryLED(){
     }
   }
 
-  if(arTime-reset > wait){
+  if(arTime-reset > WAIT){
     reset = millis();
-    if(binaryCounter < 512){
+    if(binaryCounter < MAX_BIN_COUNT){
       binaryCounter++;
     }else{
       endCycle = true;
       binaryCounter = 0;
       LEDSOFF();
-      LowPower.powerDown(SLEEP_4S, ADC_OFF, BOD_OFF);
+      doPowerDown(SLEEP_4S, TIME_MULTIPLIER);
     }
   }
 }
@@ -269,7 +281,7 @@ void binaryLED(){
  */
 void binaryLEDRand(){
 
-  for(unsigned int i=0;i<9;i++){
+  for(unsigned int i=0;i<NUM_LEDS;i++){
     if(bitRead(binaryCounter,i) == 0){
       digitalWriteFast(ledPinsRAND[i], LOW);
     }else if(bitRead(binaryCounter,i) == 1){
@@ -277,7 +289,7 @@ void binaryLEDRand(){
     }
   }
 
-  if(arTime-reset > wait){
+  if(arTime-reset > WAIT){
     reset = millis();
     if(binaryCounter < 512){
       binaryCounter++;
@@ -286,7 +298,7 @@ void binaryLEDRand(){
       binaryCounter = 0;
       LEDSOFF();
       shuffleLEDS();
-      LowPower.powerDown(SLEEP_4S, ADC_OFF, BOD_OFF);
+      doPowerDown(SLEEP_4S, TIME_MULTIPLIER);
     }
   }
 }
@@ -296,7 +308,7 @@ void binaryLEDRand(){
  * 
  */
 void lynchLED(){
-   for(unsigned int i=0;i<9;i++){
+   for(unsigned int i=0;i<NUM_LEDS;i++){
     if(lynchON){
       digitalWriteFast(ledPins[i], HIGH);
     }else{
@@ -307,16 +319,16 @@ void lynchLED(){
   if(arTime-reset > waitLynch){
     reset = millis();
     lynchON = !lynchON;
-    if(lynchCounter < cycles*2){
+    if(lynchCounter < NUM_CYCLES*2){
       lynchCounter++;
     }else{
       endCycle = true;
       lynchCounter = 1;
       randomSeed(analogRead(1));
       int rr = random(0,9);
-      waitLynch = lynchFlicks[rr]*timeMultiplier;
+      waitLynch = lynchFlicks[rr]*TIME_MULTIPLIER;
       LEDSOFF();
-      LowPower.powerDown(SLEEP_4S, ADC_OFF, BOD_OFF);
+      doPowerDown(SLEEP_4S, TIME_MULTIPLIER);
     }
   }
 }
@@ -330,18 +342,16 @@ void sendMorseMessage(){
     switch( message[i] ){
       case '.': // dit
         LEDSON();
-        delay( MORSE_UNIT_TIME );
+        doPowerDown(MORSE_UNIT_TIME, TIME_MULTIPLIER);
         LEDSOFF();
-        delay( MORSE_UNIT_TIME );
-          
+        doPowerDown(MORSE_UNIT_TIME, TIME_MULTIPLIER);
         break;
 
       case '-': // dah
         LEDSON();
-        delay( MORSE_UNIT_TIME*3 );
+        doPowerDown(MORSE_UNIT_TIME, 3*TIME_MULTIPLIER);   
         LEDSOFF();
-        delay( MORSE_UNIT_TIME );
-          
+        doPowerDown(MORSE_UNIT_TIME, TIME_MULTIPLIER);  
         break;
 
       case ' ': //gap
@@ -349,13 +359,13 @@ void sendMorseMessage(){
     }
   }
 
-  if(morseCounter < cycles){
+  if(morseCounter < NUM_CYCLES){
     morseCounter++;
   }else{
     endCycle = true;
     morseCounter = 1;
     LEDSOFF();
-    LowPower.powerDown(SLEEP_4S, ADC_OFF, BOD_OFF);
+    doPowerDown(SLEEP_4S, TIME_MULTIPLIER);
   }
   
 }
@@ -365,9 +375,9 @@ void sendMorseMessage(){
  * 
  */
 void readLDR(){
-  LDR = analogRead(A0);
+  LDR = analogRead(LDR_PIN);
 
-  if(LDR < ldrMinLight){
+  if(LDR < LDR_MIDNIGHT){
     weAreTheNight = true;
   }else{
     weAreTheNight = false;
@@ -399,8 +409,8 @@ long readVcc() {
  * 
  */
 void shuffleLEDS(){
-  for (int a=0; a<9; a++){
-    int r = random(a,8);
+  for (int a=0; a<NUM_LEDS; a++){
+    int r = random(a,NUM_LEDS-1);
     int temp = ledPinsRAND[a];
     ledPinsRAND[a] = ledPinsRAND[r];
     ledPinsRAND[r] = temp;
@@ -412,7 +422,7 @@ void shuffleLEDS(){
  * 
  */
 void LEDSOFF(){
-   for(unsigned int i=0;i<9;i++){
+   for(unsigned int i=0;i<NUM_LEDS;i++){
     digitalWriteFast(ledPins[i], LOW);
   }
 }
@@ -422,8 +432,7 @@ void LEDSOFF(){
  * 
  */
 void LEDSON(){
-   for(unsigned int i=0;i<9;i++){
+   for(unsigned int i=0;i<NUM_LEDS;i++){
     digitalWriteFast(ledPins[i], HIGH);
   }
 }
-
