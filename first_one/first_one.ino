@@ -28,9 +28,9 @@
 // Custom Code
 #include "morse.h"
 
-bool DEBUG = true;
-bool HW_DEBUG = true;
-bool SYS_DEBUG = true;
+bool DEBUG = false;
+bool HW_DEBUG = false;
+bool SYS_DEBUG = false;
 
 #define TIME_MULTIPLIER 1
 #define MORSE_UNIT_TIME SLEEP_250MS
@@ -39,7 +39,7 @@ bool SYS_DEBUG = true;
 #define NUM_CYCLES      9
 #define MIN_VOLTAGE     3200
 #define MAX_VOLTAGE     4500
-#define LDR_MIDNIGHT    60
+#define LDR_MIDNIGHT    200
 #define MAX_BIN_COUNT   512
 
 
@@ -216,6 +216,7 @@ void checkLEDS(){
       actualPin = 2;
     }
   }
+  
 }
 
 /*
@@ -416,7 +417,7 @@ void readLDR(){
   }
   
   if(DEBUG){
-    Serial.println(LDR);
+    Serial.println(LDR,DEC);
     delay(1);
   }
 }
